@@ -12,5 +12,5 @@ Download this library 🔽 <br>
 Set it up based on your own IDE or system <br>
 
 *****
-Then to Compile, do guiCalc.c algo.c <br>
+Then to Compile, put algo.c next to guiCalc.c in the compiler arguments <br>
 **Need to Compile both files**
