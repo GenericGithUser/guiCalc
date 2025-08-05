@@ -1,9 +1,16 @@
 # guiCalc
-A C based Calculator using the IUP GUI Library, somewhat functional but still work in progress
+A Simple C based Calculator using the IUP GUI Library
 
 # Features
 - Basic Calculator Stuff
 - Can do long expressions
-- Currently does not Support Negative Numbers
+- Does not Support Negative Numbers (I think it does, just untested)
 
-## Currently no compile instructions, will do later
+# Compile instructions
+Download this library 🔽 <br>
+[IUP Library Download Page](https://www.tecgraf.puc-rio.br/iup/en/download.html) <br>
+Set it up based on your own IDE or system <br>
+
+*****
+Then to Compile, do guiCalc.c algo.c <br>
+**Need to Compile both files**
