@@ -8,7 +8,7 @@
 
 Ihandle *buttons[22];
 int disabled[8] = {3,7,11,15,17,18,20};
-int mathErr = 0;
+int mathErr = 0, justClearedOrNull = 1, parenthesis = 0;
 
 
 int lockKeys(Ihandle *ih, int key){
@@ -21,8 +21,18 @@ int lockKeys(Ihandle *ih, int key){
         (key >= '0' && key <= '9') ||  key == '(' || key == ')' || key == 0 || key == K_BS || key == K_DEL || 
         key == K_LEFT || key == K_RIGHT)
         {
+            if (key == '(')
+            {
+                parenthesis = 1;
+            }
+            else if (key == ')')
+            {
+                parenthesis = 0;
+            }
+            
             return IUP_DEFAULT;
         }
+
     }
     else if (mathErr == 1)
     {
@@ -36,7 +46,16 @@ int lockKeys(Ihandle *ih, int key){
         key == '.' || key == '(' || key == ')' || key == '%' || key == 0 || key == K_BS || key == K_DEL || 
         key == K_LEFT || key == K_RIGHT
         )
-        {
+        {   
+            if (key == '(')
+            {
+                parenthesis = 1;
+            }
+            else if (key == ')')
+            {
+                parenthesis = 0;
+            }
+            
             return IUP_DEFAULT;
         }
     }
@@ -49,7 +68,7 @@ int lockKeys(Ihandle *ih, int key){
 
 void updateOpsButton(Ihandle *textBox, Ihandle **buttons){
     char *value = IupGetAttribute(textBox, "VALUE");
-    int isEmpty = (value == NULL || strlen(value) == 0);
+    int isEmpty = (strcmp(value, "0") == 0);
     int disableOps = 0;
 
     if (!isEmpty)
@@ -78,7 +97,8 @@ int onTextChange(Ihandle *textBox){
 int clearAll(Ihandle *btnClear){
     Ihandle *textBox = IupGetDialogChild(btnClear, "txtBox");
 
-    IupSetStrAttribute(textBox, "VALUE", "");
+    IupSetStrAttribute(textBox, "VALUE", "0");
+    justClearedOrNull = 1;
     for (int i = 1; i < 22; i++)
     {
         IupSetAttribute(buttons[i], "ACTIVE", "YES");
@@ -95,12 +115,30 @@ int appendVal(Ihandle *btn){
     Ihandle *textBox = IupGetDialogChild(btn, "txtBox");
     const char *currentText = IupGetAttribute(textBox, "VALUE");
 
+    if (strcmp(val, "(") == 0)
+    {
+        parenthesis = 1;
+    }else if (strcmp(val, ")") == 0)
+    {
+        parenthesis = 0;
+    }
+    
 
     char buffer[2048];
-    snprintf(buffer, sizeof(buffer), "%s%s", currentText ? currentText : "", val);
-    printf("%s\n", buffer);
+    
+    if (justClearedOrNull != 0)
+    {
+        strcpy(buffer, val);
+        IupSetStrAttribute(textBox, "VALUE", buffer);
+        printf("%s\n", buffer);
+        justClearedOrNull = 0;
+    }else{
+        snprintf(buffer, sizeof(buffer), "%s%s", currentText ? currentText : "", val);
+        printf("%s\n", buffer);
 
-    IupSetAttribute(textBox, "VALUE", buffer);
+        IupSetAttribute(textBox, "VALUE", buffer);
+    }
+    
 
     updateOpsButton(textBox, buttons);
 
@@ -123,6 +161,12 @@ int evalExp(Ihandle *btn){
     
     Ihandle *textBox = IupGetDialogChild(btn, "txtBox");
     char *value = IupGetAttribute(textBox, "VALUE");
+
+    if (parenthesis == 1)
+    {
+        return IUP_DEFAULT;
+    }
+    
 
     makeTokens(value, tokens, &tokenCount);
     infixToPostfix(tokens, tokenCount, postfixed, &postCount);
@@ -158,6 +202,9 @@ int customEnter(Ihandle *ih){
     {
         return IUP_IGNORE;
     }
+    else if(parenthesis != 0){
+        return IUP_IGNORE;
+    }
     else
     {
         evalExp(ih);
@@ -171,29 +218,41 @@ int deleteCallback(Ihandle *btn){
 
     Ihandle *textBox = IupGetDialogChild(btn, "txtBox");
     char *val = IupGetAttribute(textBox, "VALUE");
-    int size = strlen(val);
-    char buffer[size-1];
-
-    strncpy(buffer, val, size-1);
-
-    buffer[size-1] = '\0';
-    printf("buffer: %s\n", buffer);
     
-    IupSetStrAttribute(textBox, "VALUE", buffer);
+    if (val == NULL || strlen(val) == 1)
+    {
+        justClearedOrNull = 1;
+        IupSetAttribute(textBox, "VALUE", "0");
+        updateOpsButton(textBox, buttons);
+        return IUP_DEFAULT;
+    }
+    else{
+        int size = strlen(val);
+        char buffer[size-1];
+
+        strncpy(buffer, val, size-1);
+
+        buffer[size-1] = '\0';
+        printf("buffer: %s\n", buffer);
+        
+        IupSetStrAttribute(textBox, "VALUE", buffer);
 
     return IUP_DEFAULT;
+    }
+    
     
 }
 
 
 int main(int argc, char **argv){
 
+    IupSetGlobal("UTF8MODE", "YES");
     IupOpen(&argc, &argv);
 
     Ihandle *diagBox;
     Ihandle *textBox;
     Ihandle *border;
-    Ihandle *ansBox;
+    Ihandle *spacer;
     
     const char *labels[22] = {
         "AC", "(", ")", "/",
@@ -209,11 +268,11 @@ int main(int argc, char **argv){
     for (int i = 0; i < 22; i++)
     {
         buttons[i] = IupButton(labels[i], NULL);
-        IupSetAttribute(buttons[i], "SIZE", "27x18");
+        IupSetAttribute(buttons[i], "SIZE", "27x17");
         IupSetAttribute(buttons[i], "FONT", "Arial, 18");
     }
-    
-    for (int j = 1; j < 18; j++)
+    printf("%s\n", IupGetAttribute(buttons[18], "TITLE"));
+    for (int j = 1; j < 19; j++)
     {
         IupSetCallback(buttons[j], "ACTION", (Icallback)appendVal);
         
@@ -243,17 +302,20 @@ int main(int argc, char **argv){
 
     IupSetCallback(buttons[0], "ACTION", (Icallback)clearAll);
     IupSetCallback(buttons[19], "ACTION", (Icallback)evalExp);
+    
 
     textBox = IupText(NULL);
-    IupSetAttribute(textBox, "SIZE", "107x40");
-    IupSetAttribute(textBox, "FONT", "Arial, 18");
+    IupSetAttribute(textBox, "SIZE", "98x37");
+    IupSetAttribute(textBox, "FONT", "Arial, 20");
     IupSetAttribute(textBox, "BORDER", "NO");
     IupSetAttribute(textBox, "ALIGNMENT", "ARIGHT");
-    IupSetAttribute(textBox, "PADDING", "10x10");
+    IupSetAttribute(textBox, "PADDING", "20");
     IupSetAttribute(textBox, "MULTILINE", "YES");
     IupSetAttribute(textBox, "WRAP", "WORD");
     IupSetAttribute(textBox, "SCROLLBAR", "NO");
     IupSetAttribute(textBox, "NAME", "txtBox");
+    IupSetAttribute(textBox, "VALUE", "0");
+    IupSetAttribute(textBox, "BGCOLOR", "166 223 185");
     IupSetCallback(textBox, "VALUECHANGED_CB", (Icallback)onTextChange);
     IupSetCallback(textBox, "K_ANY", (Icallback)lockKeys);
 
@@ -263,10 +325,16 @@ int main(int argc, char **argv){
     IupSetAttribute(border, "HEIGHT", "1");
     IupSetAttribute(border, "BGCOLOR", "0 0 0");
 
+    spacer = IupCanvas(NULL);
+    IupSetAttribute(spacer, "SIZE", "1x7");
+    IupSetAttribute(spacer, "BGCOLOR", "166 223 185");
+    IupSetAttribute(spacer, "BORDER", "NO");
+
 
     IupSetCallback(buttons[21], "ACTION", (Icallback)deleteCallback);
 
     diagBox = IupDialog(IupVbox(
+        spacer,
         textBox,
         border,
         row1,
@@ -280,6 +348,8 @@ int main(int argc, char **argv){
 
     IupSetAttribute(diagBox, "SIZE", "200x280");
     IupSetAttribute(diagBox, "RESIZE", "NO");
+    IupSetAttribute(diagBox, "BGCOLOR", "57 158 90");
+    IupSetAttribute(diagBox, "TITLE", "Calculator");
     IupSetCallback(textBox, "K_CR", (Icallback)customEnter);
 
     IupShowXY(diagBox, IUP_CENTER, IUP_CENTER);
